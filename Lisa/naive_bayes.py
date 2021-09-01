@@ -14,7 +14,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import TensorDataset, DataLoader
 from torchvision.transforms import ToTensor
-import warnings 
+import warnings
 from sklearn.linear_model import LogisticRegression
 from PIL import Image
 from IPython.display import clear_output
@@ -32,112 +32,103 @@ import string
 import pymorphy2
 import codecs
 
-warnings.filterwarnings(action='ignore',category=UserWarning, module='gensim')  
-warnings.filterwarnings(action='ignore',category=FutureWarning, module='gensim')  
-warnings.filterwarnings(action='ignore',category=DeprecationWarning, module='gensim')
-warnings.filterwarnings(action='ignore',category=DeprecationWarning, module='smart_open') 
-warnings.filterwarnings(action='ignore',category=DeprecationWarning, module='sklearn')
-warnings.filterwarnings(action='ignore',category=DeprecationWarning, module='scipy')    
+warnings.filterwarnings(action='ignore', category=UserWarning, module='gensim')
+warnings.filterwarnings(action='ignore', category=FutureWarning, module='gensim')
+warnings.filterwarnings(action='ignore', category=DeprecationWarning, module='gensim')
+warnings.filterwarnings(action='ignore', category=DeprecationWarning, module='smart_open')
+warnings.filterwarnings(action='ignore', category=DeprecationWarning, module='sklearn')
+warnings.filterwarnings(action='ignore', category=DeprecationWarning, module='scipy')
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+
 class Preparator():
-  def __init__(self,
-               stopwords_path: str = '/content/drive/MyDrive/aiijc_sber/all_stopwords.txt',
-               bigram_model_path: str = '/content/drive/MyDrive/aiijc_sber/bigram_model.pkl'):
-      self.morph = pymorphy2.MorphAnalyzer()
-      self.tokenizer = nltk.WordPunctTokenizer()
-      self.stopwords = set(line.strip() for line in codecs.open(stopwords_path, "r", "utf_8_sig").readlines())
-      self.bigram_mod = gensim.models.Phrases.load(bigram_model_path)
+    def __init__(self,
+                 preparator_fold_name: str = '/content/drive/MyDrive/aiijc_sber/'):
+        stopwords_path = preparator_fold_name + 'all_stopwords.txt'
+        bigram_model_path = preparator_fold_name + 'bigram_model.pkl'
+        self.morph = pymorphy2.MorphAnalyzer()
+        self.tokenizer = nltk.WordPunctTokenizer()
+        self.stopwords = set(line.strip() for line in codecs.open(stopwords_path, "r", "utf_8_sig").readlines())
+        self.bigram_mod = gensim.models.Phrases.load(bigram_model_path)
 
-  def prepare_corp(self, news_list: List[str]):
-      return [self.newstext2token(news_text) for news_text in news_list]
+    def prepare_corp(self, news_list: List[str]):
+        return [self.newstext2token(news_text) for news_text in news_list]
 
-  def newstext2token(self, news_text: str):
-      tokens = self.tokenizer.tokenize(news_text.lower())
-      tokens_with_no_punct = [self.morph.parse(w)[0].normal_form for w in tokens if all(c in 'йцукенгшщзхъёфывапролджэячсмитьбю' for c in w)]
-      tokens_base_forms = [w for w in tokens_with_no_punct if w not in self.stopwords]
-      tokens_last = [w for w in tokens_base_forms if len(w)>1]
-      tokens_bigrammed = self.make_bigrams(tokens_last)
-      return ' '.join(tokens_bigrammed)
+    def newstext2token(self, news_text: str):
+        tokens = self.tokenizer.tokenize(news_text.lower())
+        tokens_with_no_punct = [self.morph.parse(w)[0].normal_form for w in tokens if
+                                all(c in 'йцукенгшщзхъёфывапролджэячсмитьбю' for c in w)]
+        tokens_base_forms = [w for w in tokens_with_no_punct if w not in self.stopwords]
+        tokens_last = [w for w in tokens_base_forms if len(w) > 1]
+        tokens_bigrammed = self.make_bigrams(tokens_last)
+        return ' '.join(tokens_bigrammed)
 
-  def make_bigrams(self, doc):
-      return self.bigram_mod[doc]
+    def make_bigrams(self, doc):
+        return self.bigram_mod[doc]
 
-  def prepare_texts(self, texts):
-    return self.prepare_corp(texts)
-    
+    def prepare_texts(self, texts):
+        return self.prepare_corp(texts)
 
 
 class BayesModel():
-  
-  def __init__(self,
-               pretrained = True,
-               vect_path: str = '/content/drive/MyDrive/aiijc_sber/nb/nb_vect.sav',
-               tfidf_path: str = '/content/drive/MyDrive/aiijc_sber/nb/nb_tfidf.sav',
-               clf_path: str = '/content/drive/MyDrive/aiijc_sber/nb/nb_clf.sav'):
 
-    if not pretrained:
-        self.vect = CountVectorizer()
-        self.tfidf = TfidfTransformer()
-        self.clf = MultinomialNB()
-    else:
-        vect = pickle.load(open(vect_path, 'rb'))
-        tfidf = pickle.load(open(tfidf_path, 'rb'))
-        clf = pickle.load(open(clf_path, 'rb'))
+    def __init__(self,
+                 pretrained=True,
+                 nb_fold_name: str = '/content/drive/MyDrive/aiijc_sber/nb/'):
 
-    self.nb = Pipeline([('vect', vect),
-                  ('tfidf', tfidf),
-                  ('clf', clf),
-                  ])
+        if not pretrained:
+            self.vect = CountVectorizer()
+            self.tfidf = TfidfTransformer()
+            self.clf = MultinomialNB()
+        else:
+            vect = pickle.load(open(nb_fold_name + 'nb_vect.sav', 'rb'))
+            tfidf = pickle.load(open(nb_fold_name + 'nb_tfidf.sav', 'rb'))
+            clf = pickle.load(open(nb_fold_name + 'nb_clf.sav', 'rb'))
 
-    self.classes = ['животные', "музыка", "спорт", "литература"]
+        self.nb = Pipeline([('vect', vect),
+                            ('tfidf', tfidf),
+                            ('clf', clf),
+                            ])
 
-  
+        self.classes = ['животные', "музыка", "спорт", "литература"]
 
-  def fit(self, X_train, Y_train):
-    self.nb.fit(X_train, Y_train)
-  
-  def predict(self, X_test: List[str]):
-    return self.nb.predict(X_test)
-  
-  def predict_proba(self, X_test: List[str]):
-    return self.nb.predict_proba(X_test)
+    def fit(self, X_train, Y_train):
+        self.nb.fit(X_train, Y_train)
 
-  def show_metrics(self, X_test, Y_test):
-    y_pred = self.predict(X_test)
-    print('accuracy %s' % accuracy_score(y_pred, Y_test))
-    print(classification_report(Y_test, y_pred, target_names=self.classes))
+    def predict(self, X_test: List[str]):
+        return self.nb.predict(X_test)
 
-  def score(self, X_test, Y_test):
-    return self.nb.score(X_test, Y_test)
+    def predict_proba(self, X_test: List[str]):
+        return self.nb.predict_proba(X_test)
+
+    def show_metrics(self, X_test, Y_test):
+        y_pred = self.predict(X_test)
+        print('accuracy %s' % accuracy_score(y_pred, Y_test))
+        print(classification_report(Y_test, y_pred, target_names=self.classes))
+
+    def score(self, X_test, Y_test):
+        return self.nb.score(X_test, Y_test)
+
+    def save_models(self,
+                    nb_fold_name: str = '/content/drive/MyDrive/aiijc_sber/nb/'):
+        pickle.dump(self.vect, open(nb_fold_name + "nb_vect.sav", 'wb'))
+        pickle.dump(self.tfidf, open(nb_fold_name + 'nb_tfidf.sav', 'wb'))
+        pickle.dump(self.clf, open(nb_fold_name + 'nb_clf.sav', 'wb'))
 
 
-  def save_models(self,
-                  vect_path: str = '/content/drive/MyDrive/aiijc_sber/nb/nb_vect.sav',
-                  tfidf_path: str = '/content/drive/MyDrive/aiijc_sber/nb/nb_tfidf.sav',
-                  clf_path: str = '/content/drive/MyDrive/aiijc_sber/nb/nb_clf.sav'):
-    pickle.dump(self.vect, open(vect_path, 'wb'))
-    pickle.dump(self.tfidf, open(tfidf_path, 'wb'))
-    pickle.dump(self.clf, open(clf_path, 'wb'))
-
-    
 if __name__ == '__main__':
-	preparator = Preparator(stopwords_path='Lisa/all_stopwords.txt',
-	                        bigram_model_path='Lisa/bigram_model.pkl')
+    preparator = Preparator(preparator_fold_name="Lisa/")
 
-	data = pd.read_csv('marked_test.csv')
-	del data['Unnamed: 0']
+    data = pd.read_csv('marked_test.csv')
+    del data['Unnamed: 0']
 
-	nb_model = BayesModel(vect_path='Lisa/nb_vect.sav', 
-	                         tfidf_path='Lisa/nb_tfidf.sav',
-	                         clf_path='Lisa/nb_clf.sav',
-	                        )
+    nb_model = BayesModel(nb_fold_name="Lisa/")
 
-	X_test = preparator.prepare_texts(data['task'].values)
-	
-	data['prediction'] = nb_model.predict(X_test)
-	data['score'] = nb_model.predict_proba(X_test).max(axis=1)
+    X_test = preparator.prepare_texts(data['task'].values)
 
-	data['prediction'] = [nb_model.classes[x] for x in data['prediction']]
-	print(data.head())
+    data['prediction'] = nb_model.predict(X_test)
+    data['score'] = nb_model.predict_proba(X_test).max(axis=1)
+
+    data['prediction'] = [nb_model.classes[x] for x in data['prediction']]
+    print(data.head())
