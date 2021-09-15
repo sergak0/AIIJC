@@ -4,6 +4,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 import re
+import numpy as np
 import os
 import pickle
 
@@ -85,11 +86,21 @@ class LogicticRegressionModel():
     
   def fit(self, X_train, Y_train):
     self.model.fit(X_train, Y_train)
+    self.ind2word = {v: k for k, v in self.vect.vocabulary_.items()}
     self.classes = self.model['clf'].classes_
   
   def predict(self, X_test: List[str]):
     return self.model.predict(X_test)
   
+  def get_top_words(self, text) :
+    tf_idf = self.vect.transform([text]).toarray()
+    pred_class = self.predict([text])
+    ind = np.argmax(self.classes == pred_class[0])
+    word_ind = [(-el, i) for i, el in enumerate(self.clf.coef_[ind] * tf_idf[0]) if el > 0]
+    word_ind.sort()
+    ans = [self.ind2word[i] for el, i in word_ind]    
+    return ans
+
   def predict_proba(self, X_test: List[str]):
     return self.model.predict_proba(X_test)
 
