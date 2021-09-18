@@ -19,10 +19,15 @@ from nltk.stem import WordNetLemmatizer
 
 
 class LogicticRegressionPreparator():
+    """
+    Prepare text:
+    1) Remove stop words
+    2) Leads words to normal forms
+    """
     def __init__(self):
         pass
     
-    def data_prepare(self, language_dict, ru=False, en=False, es=False):
+    def data_prepare(self, language_dict: List[str], ru=False, en=False, es=False):
         if ru:
             stop_words = set(stopwords.words('russian'))
             lemmatizer = pymorphy2.MorphAnalyzer()
@@ -56,14 +61,16 @@ class LogicticRegressionPreparator():
             dict_prepared.append(filtered_text)
         return dict_prepared
     
-    def prepare_texts(self, texts):
+    def prepare_texts(self, texts: List[str]):
         return self.data_prepare(texts, ru = True)
 
 
 class LogicticRegressionModel():
-  
+  """
+  Logistic Regression with tf-idf vectorizer
+  """
   def __init__(self,
-               pretrained = True,
+               pretrained: bool = True,
                path: str = 'logistic_regression.pt'
               ):
 
@@ -73,9 +80,11 @@ class LogicticRegressionModel():
     
     
     if not pretrained:
+        # Create new model
         self.vect = TfidfVectorizer()
         self.clf = LogisticRegression(penalty='l1', C=50 , verbose = 10 , solver='liblinear')
     else:
+        # Upload exsiting model
         self.vect = pickle.load(open(vect_path, 'rb'))
         self.clf = pickle.load(open(clf_path, 'rb'))
         self.ind2word = pickle.load(open(ind2word_path, 'rb'))
@@ -87,7 +96,7 @@ class LogicticRegressionModel():
     self.classes = ['животные', "музыка", "спорт", "литература"]
 
     
-  def fit(self, X_train, Y_train):
+  def fit(self, X_train: List[str], Y_train: List[str]):
     self.model.fit(X_train, Y_train)
     self.ind2word = {v: k for k, v in self.vect.vocabulary_.items()}
     self.classes = self.model['clf'].classes_
@@ -95,7 +104,10 @@ class LogicticRegressionModel():
   def predict(self, X_test: List[str]):
     return self.model.predict(X_test)
   
-  def get_top_words(self, text) :
+  def get_top_words(self, text: str) :
+    """
+    Getting keyword for text
+    """
     tf_idf = self.vect.transform([text]).toarray()
     pred_class = self.predict([text])
     ind = np.argmax(self.classes == pred_class[0])
@@ -107,17 +119,19 @@ class LogicticRegressionModel():
   def predict_proba(self, X_test: List[str]):
     return self.model.predict_proba(X_test)
 
-  def show_metrics(self, X_test, Y_test):
+  def show_metrics(self, X_test: List[str], Y_test: List[str]):
     y_pred = self.predict(X_test)
     print('accuracy %s' % accuracy_score(y_pred, Y_test))
     print(classification_report(Y_test, y_pred, target_names=self.classes))
 
-  def score(self, X_test, Y_test):
+  def score(self, X_test: List[str], Y_test: List[str]):
     return self.model.score(X_test, Y_test)
 
 
   def save(self, path: str = 'logistic_regression.pt'):   
-    
+    """
+    Saving model into path
+    """
     if not os.path.exists(path):
         os.makedirs(path)
     
