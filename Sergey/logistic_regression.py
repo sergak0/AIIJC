@@ -66,9 +66,11 @@ class LogicticRegressionModel():
                pretrained = True,
                path: str = 'logistic_regression.pt'
               ):
-    
+
+    ind2word_path = os.path.join(path, 'index_to_words.pickle')
     vect_path = os.path.join(path, 'vect.pickle')
     clf_path = os.path.join(path, 'clf.pickle')
+    
     
     if not pretrained:
         self.vect = TfidfVectorizer()
@@ -76,6 +78,7 @@ class LogicticRegressionModel():
     else:
         self.vect = pickle.load(open(vect_path, 'rb'))
         self.clf = pickle.load(open(clf_path, 'rb'))
+        self.ind2word = pickle.load(open(ind2word_path, 'rb'))
 
     self.model = Pipeline([('vect', self.vect),
                   ('clf', self.clf),
@@ -117,27 +120,11 @@ class LogicticRegressionModel():
     
     if not os.path.exists(path):
         os.makedirs(path)
-     
+    
+    ind2word_path = os.path.join(path, 'index_to_words.pickle')
     vect_path = os.path.join(path, 'vect.pickle')
     clf_path = os.path.join(path, 'clf.pickle')
     
+    pickle.dump(self.ind2word, open(ind2word_path, 'wb'))
     pickle.dump(self.vect, open(vect_path, 'wb'))
     pickle.dump(self.clf, open(clf_path, 'wb'))
-
-
-
-if __name__ == '__main__':
-  preparator = LogicticRegressionPreparator()
-
-  data = pd.read_csv('marked_test.csv')
-  del data['Unnamed: 0']
-
-  nb_model = LogicticRegressionModel(path='logistic_regression.pt')
-
-  X_test = preparator.prepare_texts(data['task'].values)
-  
-  data['prediction'] = nb_model.predict(X_test)
-  data['score'] = nb_model.predict_proba(X_test).max(axis=1)
-
-  data['prediction'] = [nb_model.classes[x] for x in data['prediction']]
-  print(data.head())
