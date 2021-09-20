@@ -264,4 +264,5 @@ if __name__ == '__main__':
 
 """
 Наш github, в котором находится информация о всей проделанной нами работе: https://github.com/sergak0/AIIJC
+Наш telegram-bot: @aiijcdungeonmastersbot
 """
