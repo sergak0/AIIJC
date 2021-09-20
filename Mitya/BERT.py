@@ -20,7 +20,7 @@ class BERT_train_data():
 		self.alphabet = set('абвгдеёжзийклмнопрстуфхцчшщъыьэюя ')
 		self.tokenizer = tokenizer
 
-	def generate_texts(self, texts, windowLen, only_long=True):
+	def generate_texts(self, texts, windowLen, only_long=True): # Удаление ненужных символов из текста, приведение к нижнему регистру, разбитие текста на более маленькие
 		out = []
 		for text in texts:
 			text = text.lower().replace('\n', ' ')
@@ -33,6 +33,8 @@ class BERT_train_data():
 		return out
 
 	def train_data_prepare(self, train_on_facts=True, facts_file_name='facts.csv', train_on_tasks=True, tasks_file_name='full_marked_dataset.csv', sentMaxLen=50, max_len_tokenized=200, batch_size=20, valid_size=0.1):
+		
+		# Открытие csv файлов и их объединение
 		if train_on_facts:
 			df = pd.read_csv(facts_file_name)
 			df_new = df
@@ -47,6 +49,8 @@ class BERT_train_data():
 			for i in range(len(df_new)):
 			  df.loc[-i-1] = df_new.loc[i]
 			df = df.reset_index(drop=True)
+
+		# Формирование тренировочной выборки, её токенизация и преобразование в DataLoader
 
 		sentences = []
 		labels = []
@@ -101,6 +105,8 @@ class BERT_model():
 	def __init__(self, tokenizer, load_model=True, model_file_name='model.pth', device=torch.device('cpu'), lr=2e-5):
 		self.device = device
 
+		# Загрузка модели или создание новой
+
 		self.model = BertForSequenceClassification.from_pretrained("bert-base-multilingual-uncased", num_labels=4, output_hidden_states=True, output_attentions=True)
 		if load_model:
 			self.model.load_state_dict(torch.load(model_file_name))
@@ -127,6 +133,8 @@ class BERT_model():
 			print(f'Epoch {ep+1}/{epochs}')
 			self.model.train()
 
+			# Тренировка модели
+
 			for step, batch in enumerate(train_dataloader):
 				batch = tuple(t.to(self.device) for t in batch)
 				b_input_ids, b_input_mask, b_labels = batch
@@ -138,7 +146,9 @@ class BERT_model():
 				self.optimizer.step()
 
 			self.model.eval()
- 
+ 			
+			# Валидация модели
+
 			valid_preds, valid_labels = [], []
 			
 			for i in range(len(validation[0])):
@@ -161,7 +171,8 @@ class BERT_model():
 			    f1_score(valid_labels, valid_preds, average='macro') * 100
 			))
 
-	def prediction(self, sentence, max_key_words=1):
+	def prediction(self, sentence, max_key_words=1): # Получение категории и ключевых слов текста
+		# Подготовка текста: удаление ненужных символов из текста, приведение к нижнему регистру, токенизация
 		sentence = sentence.lower().replace('\n', ' ').replace('ё', 'е').replace('й', 'и')
 		sentence = ''.join(c for c in sentence if c in self.alphabet)
 		sentence = ' '.join(sentence.split()[:200])
@@ -169,11 +180,13 @@ class BERT_model():
 		words = sentence.split()
 		tokenized = self.tokenizer.tokenize(sentence)
 
+		# Получение для каждого токена индекса слова, из которого сделан этот токен
 		now_word = 0
 		now_ind = 0
 		token_to_word = []
 		for i in tokenized:
 			token_to_word.append(now_word)
+			# Проход по всем символам токена
 			for j in range(len(i)):
 				if i[j] != words[now_word][now_ind]:
 					continue
@@ -182,6 +195,7 @@ class BERT_model():
 					now_ind = 0
 					now_word += 1
 
+		# Предсказание модели и получение attention
 		ids = [self.tokenizer.convert_tokens_to_ids(tokenized)]
 		ids = torch.tensor(ids)
 		ids = ids.to(self.device)
@@ -194,9 +208,12 @@ class BERT_model():
 		ans_cat = self.categories[ans_ind]
 
 		attention = logits[3][11][0][11][0].detach().to('cpu').numpy()
+
+		# Получение самых важных max_key_words слов
 		max_inds = np.flip(np.argsort(attention))
 		all_key_words = ['[SEP]', '[CLS]']
 		for i in max_inds:
+			# Просмотр новых слов до получения max_key_words самых важных слов или до просмотра всех слов
 			if words[token_to_word[i]] in all_key_words:
 				continue
 			all_key_words.append(words[token_to_word[i]])
@@ -213,6 +230,7 @@ class BERT_model():
 		print(all_key_words)
 
 	def test(self, test_file_name='test.csv', ans_file_name='ans.csv'):
+		# Создание предсказаний модели на тестовой выборке -- ans.csv
 		self.model.eval()
 		df_test = pd.read_csv(test_file_name)
 		ans_csv = []
@@ -243,3 +261,7 @@ if __name__ == '__main__':
 		bert.save_model()
 	
 	bert.test()
+
+"""
+Наш github, в котором находится информация о всей проделанной нами работе: https://github.com/sergak0/AIIJC
+"""
